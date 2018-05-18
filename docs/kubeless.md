@@ -183,108 +183,85 @@ para a internet pública.
 
 ![image2](../imgs/kubeless_image2.png)
 
-Abrindo a porteira da internet 2
---------------------------------
+## Abrindo a porteira da internet 2
 
 Para abrir o seu serviço para a internet pública de maneira **porca** e
 rápida, mude a propriedade *\"type\"* do seu serviço de *"ClusterIP"*
 para *\"LoadBalancer\": (Depois de aproxidamente 1\~2 minutos, o AKS vai
 provisionar um LB e um IP público para você)*
 
-![](media/image4.png){width="7.485416666666667in" height="3.30625in"}
+![image3](../imgs/kubeless_image3.png)
 
-Outros Runtimes
----------------
+## Outros Runtimes
 
 Veja tutoriais em <https://kubeless.io/docs/runtimes/>
 
 De acordo com a documentação:
 
-> "By default Kubeless has support for the following runtimes:
+> By default Kubeless has support for the following runtimes:
+> * Python: For the branches 2.7, 3.4 and 3.6
+> * NodeJS: For the branches 6 and 8
+> * Ruby: For the branch 2.4
+> * PHP: For the branch 7.2
+> * Golang: For the branch 1.10"
 
--   Python: For the branches 2.7, 3.4 and 3.6
-
--   NodeJS: For the branches 6 and 8
-
--   Ruby: For the branch 2.4
-
--   PHP: For the branch 7.2
-
--   Golang: For the branch 1.10"
-
-Antes o C\# com .NET Core 2.0 estava ali, mas começou a ter falhas de
-integração -- logo os caras tiraram hehehe. Mas isso já foi corrigido e
-espero ser mergeado de novo em breve:
-<https://github.com/kubeless/kubeless/pull/697>
-
-Exploring Kubeless in K8s
-=========================
+## Exploring Kubeless in K8s
 
 Vamos fazer juntos, mas basicamente é notar:
 
--   O ConfigMap de cada função (com o código e as dependências)
+* ConfigMap de cada função (com o código e as dependências)
+* Service criado
+* Deployment
+* ReplicaSet
+* Pod
+    * Container principal e suas variáveis de ambiente, por exemplo:
 
--   O Service criado
+    ![image4](../imgs/kubeless_image4.png)
 
--   O Deployment
+    * Os Init Container que copiam os arquivos e restauram dependências antes do container principal subir:
 
--   O ReplicaSet
+    ![image5](../imgs/kubeless_image5.png)
 
--   O Pod
+## Runtime do .NET Core (C#)
 
-    -   O container principal e suas variáveis de ambiente, por exemplo:
+1. Apague a sua instalação do kubeless:
 
-![](media/image5.png){width="6.112716535433071in"
-height="2.4886679790026247in"}
+```bash
+kubectl delete -f kubeless-non-rbac-v1.0.0-alpha.2.yaml
+```
 
--   Os Init Container que copiam os arquivos e restauram dependências
-    antes do container principal subir:
+2. Apague o namespace
 
-![](media/image6.png){width="7.491666666666666in"
-height="1.867361111111111in"}
+```bash
+kubectl delete ns kubeless
+```
 
-Runtime do .NET Core (C\#)
-==========================
+3. Espere um pouco -- e então crie de novo o namespace:
 
-1.  Apague a sua instalação do kubeless:
+```bash
+kubectl create ns kubeless
+```
 
-> \$ kubectl delete -f kubeless-non-rbac-v1.0.0-alpha.2.yaml
+4. Pegue o kubeless yaml definition da [branch de CSE https://github.com/CSELATAM/kubeless/tree/allantargino/dotnetcore-fixes) e aplique ao seu cluster:
 
-2.  Apague o namespace
+```bash
+kubectl create -f kubeless-dotnet.yaml
+```
 
-> \$ kubectl delete ns kubeless
-
-3.  Espere um pouco -- e então crie de novo o namespace:
-
-> \$ kubectl create ns kubeless
-
-4.  Pegue o kubeless yaml definition (**pegue com o Allanzinho do
-    Baile!)** da [branch de
-    CSE](https://github.com/CSELATAM/kubeless/tree/allantargino/dotnetcore-fixes)
-    e aplique ao seu cluster:
-
-> \$ kubectl create -f kubeless-dotnet.yaml
-
-5.  Teste os exemplos de .NET Core do repo (e outros que você queira!):
+5. Teste os exemplos de .NET Core do repo (e outros que você queira!):
 
     <https://github.com/CSELATAM/kubeless/tree/allantargino/dotnetcore-fixes/examples/dotnetcore>
 
-> \$ kubeless function deploy helloget \--from-file helloget.cs
-> \--runtime dotnetcore2.0 \--handler module.handler \--dependencies
-> helloget.csproj
->
-> \$ kubeless function deploy hellowithdata \--from-file
-> hellowithdata.cs \--runtime dotnetcore2.0 \--handler module.handler
-> \--dependencies hellowithdata.csproj
->
-> \$ kubeless function deploy dependency-yaml \--from-file
-> dependency-yaml.cs \--runtime dotnetcore2.0 \--handler module.handler
-> \--dependencies dependency-yaml.csproj
->
-> \$ kubeless function deploy fibonacci \--from-file fibonacci.cs
-> \--runtime dotnetcore2.0 \--handler module.handler \--dependencies
-> fibonacci.csproj
->
+```bash
+$ kubeless function deploy helloget --from-file helloget.cs --runtime dotnetcore2.0 --handler module.handler --dependencies helloget.csproj
+
+$ kubeless function deploy hellowithdata --from-file hellowithdata.cs --runtime dotnetcore2.0 --handler module.handler --dependencies hellowithdata.csproj
+
+$ kubeless function deploy dependency-yaml --from-file dependency-yaml.cs --runtime dotnetcore2.0 --handler module.handler --dependencies dependency-yaml.csproj
+
+$ kubeless function deploy fibonacci --from-file fibonacci.cs --runtime dotnetcore2.0 --handler module.handler --dependencies fibonacci.csproj
+```
+
 > Todos eles usam o seguinte Nuget:
 > <https://www.nuget.org/packages/Kubeless.Functions/>
 >
@@ -296,26 +273,21 @@ Runtime do .NET Core (C\#)
 
 6.  Para começar um novo projeto usando o runtime de .NET Core, faça:
 
-\$ dotnet new library
+```bash
+$ dotnet new library
+$ dotnet add package Kubeless.Functions
+```
 
-> \$ dotnet add package Kubeless.Functions
+## Autoscaling
 
-Autoscaling
-===========
-
-Sinceramente, eu nunca testei essa função -- mas eles usam o Horizontal
-Pod Autoscaler do Kubernetes para escalar, o que é bem legal -- vale a
+Sinceramente, eu nunca testei essa função - mas eles usam o Horizontal
+Pod Autoscaler do Kubernetes para escalar, o que é bem legal. Vale a
 leitura: <https://kubeless.io/docs/autoscaling/>
 
-Referências:
-============
+### Referências
 
--   <https://kubeless.io/docs/>
-
--   <https://kubeless.io/docs/architecture/>
-
--   <https://kubeless.io/docs/kubeless-functions/>
-
--   <https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/>
-
--   <https://github.com/kubeless/kubeless>
+* <https://kubeless.io/docs/>
+* <https://kubeless.io/docs/architecture/>
+* <https://kubeless.io/docs/kubeless-functions/>
+* <https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/>
+* <https://github.com/kubeless/kubeless>
